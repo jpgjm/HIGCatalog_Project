@@ -1,0 +1,121 @@
+name: HIGCatalog
+
+# ------------------------------------------------------------------
+# バージョン
+#
+# App Extension (Widget) の CFBundleShortVersionString / CFBundleVersion は
+# ホストアプリと一致していないといけない。片方だけ更新する事故を防ぐため、
+# アンカーで 1 か所にまとめる。納品ごとにここだけ上げる。
+# ------------------------------------------------------------------
+versionDefaults: &versionDefaults
+  CFBundleShortVersionString: "1.0.0"
+  CFBundleVersion: "1"
+
+options:
+  bundleIdPrefix: com.example
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGNING_REQUIRED: "NO"
+    CODE_SIGNING_ALLOWED: "NO"
+    CODE_SIGN_IDENTITY: ""
+    DEVELOPMENT_TEAM: ""
+    ENABLE_BITCODE: "NO"
+
+targets:
+  # ====================================================================
+  # ホストアプリ
+  # ====================================================================
+  HIGCatalog:
+    type: application
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: Source
+    dependencies:
+      # Widget / Live Activity / Control を提供する App Extension。
+      # XcodeGen が PlugIns/ に埋め込む。
+      - target: HIGCatalogWidget
+    # entitlements は意図的に持たない (SideStore が再署名する)。
+    # Live Activity / Widget / Control / ローカル通知 / App Shortcuts は
+    # いずれも entitlement 不要で、無料 Personal Team で動く。
+    info:
+      path: Resources/Info.plist
+      properties:
+        CFBundleDisplayName: HIG Catalog
+        <<: *versionDefaults
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        # ログファイル (Documents/logs/) を「ファイル」App から取り出せるようにする。
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+        ITSAppUsesNonExemptEncryption: false
+        # --- Live Activities (System experiences > Live Activities) -------
+        # entitlement 不要。このキーだけで Activity.request が通る。
+        NSSupportsLiveActivities: true
+        # --- 複数ウインドウ (Presentation > Windows の iPad デモ) ----------
+        # iPad で openWindow を使うために必要。iPhone では無視される。
+        # SceneDelegate は AppDelegate.application(_:configurationForConnecting:)
+        # でコードから指定する (SwiftUI ライフサイクルと共存させるため)。
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: true
+        # --- Home Screen quick actions (Menus and actions) ---------------
+        # 静的な項目。アイコン長押しで出る。SceneDelegate が受け取ってログに残す。
+        UIApplicationShortcutItems:
+          - UIApplicationShortcutItemType: random
+            UIApplicationShortcutItemTitle: ランダムな部品を開く
+            UIApplicationShortcutItemSubtitle: HIG の部品をひとつ表示
+            UIApplicationShortcutItemIconSymbolName: shuffle
+          - UIApplicationShortcutItemType: logs
+            UIApplicationShortcutItemTitle: ログを開く
+            UIApplicationShortcutItemIconSymbolName: doc.text.magnifyingglass
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.higcatalog
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: "NO"
+
+  # ====================================================================
+  # Widget Extension
+  #
+  # Widgets / Live Activities / Controls の実物を表示するために使う。
+  # App ID を 1 枠消費する (ホストと合わせて 2 枠)。
+  #
+  # Source/Shared は ActivityAttributes をホストと共有するために
+  # 両ターゲットへコンパイルする (フレームワークは切らない)。
+  # ====================================================================
+  HIGCatalogWidget:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: HIGCatalogWidget
+      - path: Source/Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.higcatalog.widget
+        PRODUCT_NAME: HIGCatalogWidget
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: "NO"
+        SKIP_INSTALL: "YES"
+    info:
+      path: HIGCatalogWidget/Info.plist
+      properties:
+        CFBundleDisplayName: HIG Catalog
+        <<: *versionDefaults
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
